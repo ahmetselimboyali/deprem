@@ -6,16 +6,30 @@
   <title>Türkiye Depremleri Haritası</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
+    html, body { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; }
     #filters {
       padding: 10px;
-      background-color: #f8f8f8;
+      background-color: #ffffff;
       border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    #map { height: calc(100vh - 60px); }
-    label {
-      margin-right: 10px;
+    #filters input, #filters button {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
     }
+    #filters button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #filters button:hover {
+      background-color: #0056b3;
+    }
+    #map { height: calc(100vh - 70px); }
   </style>
 </head>
 <body>
@@ -26,61 +40,76 @@
     </label>
     <label>
       Son Kaç Saat:
-      <input type="number" id="hours" value="48" step="1">
+      <input type="number" id="hours" value="24" step="1">
     </label>
-    <button onclick="getEarthquakes()">Filtrele</button>
+    <button onclick="getEarthquakes()">🔍 Filtrele</button>
   </div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([38.9637, 35.2433], 6); // Türkiye merkez koordinatları
+    const map = L.map('map').setView([38.9637, 35.2433], 6);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: 'OpenStreetMap Katkıcıları'
-    }).addTo(map);
+    const baseLayers = {
+      "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'OpenStreetMap Katkıcıları'
+      }),
+      "OpenTopoMap": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'OpenTopoMap Katkıcıları'
+      }),
+      "Esri WorldImagery": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye'
+      })
+    };
+
+    baseLayers["OpenStreetMap"].addTo(map);
+    L.control.layers(baseLayers).addTo(map);
 
     let markers = [];
-
-    function getDate(hoursAgo) {
-      const now = new Date();
-      const past = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-      return past.toISOString().split('.')[0];
-    }
 
     async function getEarthquakes() {
       const minMag = document.getElementById('minMag').value;
       const hours = document.getElementById('hours').value;
-      const startTime = getDate(hours);
-      const endTime = new Date().toISOString().split('.')[0];
 
-      const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${startTime}&endtime=${endTime}&minmagnitude=${minMag}&minlatitude=36&maxlatitude=42&minlongitude=26&maxlongitude=45`;
-
-      const response = await fetch(url);
+      const rss2json = 'https://api.rss2json.com/v1/api.json?rss_url=https://www.emsc-csem.org/service/rss/rss.php?typ=emsc';
+      const response = await fetch(rss2json);
       const data = await response.json();
 
-      // Önce eski markerları temizle
       markers.forEach(marker => map.removeLayer(marker));
       markers = [];
 
-      data.features.forEach(eq => {
-        const coords = eq.geometry.coordinates;
-        const magnitude = eq.properties.mag;
-        const place = eq.properties.place;
-        const time = new Date(eq.properties.time).toLocaleString();
+      const now = new Date();
 
-        const marker = L.circleMarker([coords[1], coords[0]], {
-          radius: magnitude * 2,
-          color: magnitude >= 4 ? 'darkred' : magnitude >= 3 ? 'orange' : 'blue'
-        }).addTo(map)
-          .bindPopup(`<b>${place}</b><br>Magnitude: ${magnitude}<br>Zaman: ${time}`);
+      data.items.forEach(item => {
+        const titleParts = item.title.match(/M (\d+(\.\d+)?) - (.+)/);
+        if (!titleParts) return;
 
-        markers.push(marker);
+        const magnitude = parseFloat(titleParts[1]);
+        const place = titleParts[3];
+
+        const pubDate = new Date(item.pubDate);
+        const hoursDiff = (now - pubDate) / (1000 * 60 * 60);
+
+        if (magnitude >= minMag && hoursDiff <= hours) {
+          const coords = item.description.match(/Lat:\s*(-?\d+\.\d+),\s*Lon:\s*(-?\d+\.\d+)/);
+          if (!coords) return;
+
+          const lat = parseFloat(coords[1]);
+          const lon = parseFloat(coords[2]);
+
+          const marker = L.circleMarker([lat, lon], {
+            radius: magnitude * 2,
+            color: magnitude >= 4 ? 'darkred' : magnitude >= 3 ? 'orange' : 'blue'
+          }).addTo(map)
+            .bindPopup(`<b>${place}</b><br>Magnitude: ${magnitude}<br>Zaman: ${pubDate.toLocaleString()}`);
+
+          markers.push(marker);
+        }
       });
     }
 
     getEarthquakes();
-    setInterval(getEarthquakes, 300000); // 5 dakikada bir güncelle
+    setInterval(getEarthquakes, 300000);
   </script>
 </body>
 </html>
