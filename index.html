@@ -3,15 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>İstanbul Depremleri Haritası</title>
+  <title>Türkiye Depremleri Haritası</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    #map { height: 90vh; }
+    html, body { height: 100%; margin: 0; padding: 0; }
     #filters {
       padding: 10px;
       background-color: #f8f8f8;
       border-bottom: 1px solid #ccc;
     }
+    #map { height: calc(100vh - 60px); }
     label {
       margin-right: 10px;
     }
@@ -21,7 +22,7 @@
   <div id="filters">
     <label>
       Min. Büyüklük:
-      <input type="number" id="minMag" value="1.5" step="0.1">
+      <input type="number" id="minMag" value="2.5" step="0.1">
     </label>
     <label>
       Son Kaç Saat:
@@ -33,7 +34,7 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([41.0082, 28.9784], 8); // İstanbul koordinatları
+    const map = L.map('map').setView([38.9637, 35.2433], 6); // Türkiye merkez koordinatları
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: 'OpenStreetMap Katkıcıları'
@@ -53,7 +54,7 @@
       const startTime = getDate(hours);
       const endTime = new Date().toISOString().split('.')[0];
 
-      const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${startTime}&endtime=${endTime}&minlatitude=40.7&maxlatitude=41.3&minlongitude=28.6&maxlongitude=29.5&minmagnitude=${minMag}`;
+      const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${startTime}&endtime=${endTime}&minmagnitude=${minMag}&minlatitude=36&maxlatitude=42&minlongitude=26&maxlongitude=45`;
 
       const response = await fetch(url);
       const data = await response.json();
